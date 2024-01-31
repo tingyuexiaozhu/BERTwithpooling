@@ -110,6 +110,18 @@ def find_file_with_name(directory_path, file_name):
     # 如果没有找到匹配的文件，则返回None
     return None
 
+def split_data(data, fold_index, k=5):
+    """将数据划分为训练集和验证集。
+    data: 整个数据集
+    fold_index: 当前的折数索引
+    k: 总共的折数
+    """
+    fold_size = len(data) // k
+    validation_data = data[fold_index * fold_size:(fold_index + 1) * fold_size]
+    train_data = data[:fold_index * fold_size] + data[(fold_index + 1) * fold_size:]
+    return train_data, validation_data
+
+
 # mine 冻结BERT权重的
 def train(config, model, train_iter, dev_iter, test_iter):
     start_time = time.time()
@@ -295,6 +307,7 @@ def test(config, model, test_iter):
     # 计算并打印测试所用的时间
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
+    return test_acc, test_macro_f1, test_loss, test_report, test_confusion
 
 
 # def evaluate(config, model, data_iter, test=False):

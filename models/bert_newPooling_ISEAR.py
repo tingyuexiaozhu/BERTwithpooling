@@ -15,9 +15,8 @@ class Config(object):
     """配置参数"""
 
     def __init__(self, dataset):
-        self.model_name = 'col norm o28 1e-5 batch size32 exclude pad bert base uncased   without dropout before gcn_200_cos_0.3learnable_nonlinear in graph constructing_76851212832 20000_500_28'
-
-        self.current_dataset = '/o28_new'
+        self.model_name = '1e-5 batch size8 pad60 ISEAR_exclude pad bert base uncased   without dropout before gcn_200_cos_0.3learnable_nonlinear in graph constructing_76851212832'
+        self.current_dataset = '/ISEAR'
         self.train_path = dataset + self.current_dataset + '/train.txt'  # 训练集
         self.dev_path = dataset + self.current_dataset + '/dev.txt'  # 验证集
         self.test_path = dataset + self.current_dataset + '/test.txt'  # 测试集
@@ -29,8 +28,8 @@ class Config(object):
         self.require_improvement = 10000  # 若超过1000batch效果还没提升，则提前结束训练
         self.num_classes = len(self.class_list)  # 类别数=
         self.num_epochs = 1000  # epoch数
-        self.batch_size = 16  # mini-batch大小
-        self.pad_size = 32  # 每句话处理成的长度(短填长切)
+        self.batch_size = 8  # mini-batch大小
+        self.pad_size = 60  # 每句话处理成的长度(短填长切)
         self.learning_rate = 1e-5  # 学习率
         self.bert_path = 'bert-base-uncased'
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_path)
@@ -44,7 +43,7 @@ class Config(object):
         self.unfreeze_epoch = 3  # 何时更新BERT权重
         # self.checkpoint_dir = '../geoemotion/saved_dict'
         self.resume_from_checkpoint = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                                   'goemotion', 'saved_dict')
+                                                   'ISEAR', 'saved_dict')
 
 
 class Model(nn.Module):
@@ -54,9 +53,9 @@ class Model(nn.Module):
         self.d = nn.Parameter(torch.tensor([0.3])).to(config.device)  # 高斯核函数带宽
         self.dropout = nn.Dropout(config.dropout)
         self.num_clusters = config.num_clusters
-        self.fc1 = nn.Linear(config.hidden_size1 * self.num_clusters, 10000)
-        self.fc2 = nn.Linear(10000, 500)
-        self.fc3 = nn.Linear(500, config.num_classes)
+        self.fc1 = nn.Linear(config.hidden_size1 * self.num_clusters, 1000)
+        self.fc2 = nn.Linear(1000, 100)
+        self.fc3 = nn.Linear(100, config.num_classes)
         self.landmarks_initialized = False
         self.landmarks = None
         self.device = config.device
@@ -68,7 +67,7 @@ class Model(nn.Module):
 
         # self.position_embedding_layer = nn.Embedding(config.pad_size, config.num_clusters)
         # self.position_embedding_layer = nn.Embedding(config.pad_size, 1)
-        self.clusters_ = "new_cluster_centers200_without pad.npy"
+        self.clusters_ = "ISEAR_new_cluster_centers200_without pad.npy"
         self.alpha_for_distanceweight = nn.Parameter(torch.tensor([0.5])).to(config.device)
         self.hidden_size4 = 32
         self.num_clusters = config.num_clusters
@@ -120,7 +119,6 @@ class Model(nn.Module):
         # 将相似度矩阵转换为概率矩阵
         # 沿着每个点的聚类中心维度进行归一化
         probability_matrix = similarity_matrix / (similarity_matrix.sum(dim=1, keepdim=True)+1e-6)
-        # probability_matrix = probability_matrix / (probability_matrix.sum(dim=1, keepdim=True)+1e-6)
 
         return probability_matrix
 

@@ -1,0 +1,7 @@
+anger
+disgust
+fear
+guilt
+joy
+sadness
+shame

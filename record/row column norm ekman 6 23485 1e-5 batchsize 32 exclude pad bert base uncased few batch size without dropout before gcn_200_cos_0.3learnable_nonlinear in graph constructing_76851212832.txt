@@ -1,3 +1,19 @@
+ekman
+with skip connection in gcn
+3layers gcn
+adamw
+余弦退火
+保存的是val acc最高的模型
+gcn之前无dropout
+带宽可学
+建图时每个元素乘了exp(beta x) beta 可学
+gcn 768-512-128-32
+batch size 32
+learning rate 1e-5
+bert base uncased
+消除了pad 的影响
+probability_matrix先行归一化，后列归一化
+
 import torch
 import torch.nn as nn
 import os
@@ -10,14 +26,39 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.data import Data, Batch
 import torch.nn.functional as F
 
+Test Loss:  0.62,  Test Acc: 80.56%,  Test Macro F1: 71.42%
+Precision, Recall and F1-Score...
+              precision    recall  f1-score   support
+
+       anger     0.7020    0.6885    0.6951       520
+     disgust     0.7069    0.5395    0.6119        76
+        fear     0.6744    0.7532    0.7117        77
+         joy     0.8763    0.9233    0.8991      1603
+     sadness     0.6667    0.6332    0.6495       259
+    surprise     0.7671    0.6748    0.7180       449
+
+    accuracy                         0.8056      2984
+   macro avg     0.7322    0.7021    0.7142      2984
+weighted avg     0.8017    0.8056    0.8025      2984
+
+Confusion Matrix...
+[[ 358    6    7   74   33   42]
+ [  20   41    2    7    5    1]
+ [   4    3   58    7    3    2]
+ [  59    3    6 1480   25   30]
+ [  35    1    6   36  164   17]
+ [  34    4    7   85   16  303]]
+
+
+
 
 class Config(object):
     """配置参数"""
 
     def __init__(self, dataset):
-        self.model_name = 'col norm o28 1e-5 batch size32 exclude pad bert base uncased   without dropout before gcn_200_cos_0.3learnable_nonlinear in graph constructing_76851212832 20000_500_28'
+        self.model_name = 'ekman6_23485 1e-5 batch size32 exclude pad bert base uncased   without dropout before gcn_200_cos_0.3learnable_nonlinear in graph constructing_76851212832'
 
-        self.current_dataset = '/o28_new'
+        self.current_dataset = '/ekman6_23485'
         self.train_path = dataset + self.current_dataset + '/train.txt'  # 训练集
         self.dev_path = dataset + self.current_dataset + '/dev.txt'  # 验证集
         self.test_path = dataset + self.current_dataset + '/test.txt'  # 测试集
@@ -29,7 +70,7 @@ class Config(object):
         self.require_improvement = 10000  # 若超过1000batch效果还没提升，则提前结束训练
         self.num_classes = len(self.class_list)  # 类别数=
         self.num_epochs = 1000  # epoch数
-        self.batch_size = 16  # mini-batch大小
+        self.batch_size = 32  # mini-batch大小
         self.pad_size = 32  # 每句话处理成的长度(短填长切)
         self.learning_rate = 1e-5  # 学习率
         self.bert_path = 'bert-base-uncased'
@@ -54,9 +95,9 @@ class Model(nn.Module):
         self.d = nn.Parameter(torch.tensor([0.3])).to(config.device)  # 高斯核函数带宽
         self.dropout = nn.Dropout(config.dropout)
         self.num_clusters = config.num_clusters
-        self.fc1 = nn.Linear(config.hidden_size1 * self.num_clusters, 10000)
-        self.fc2 = nn.Linear(10000, 500)
-        self.fc3 = nn.Linear(500, config.num_classes)
+        self.fc1 = nn.Linear(config.hidden_size1 * self.num_clusters, 1000)
+        self.fc2 = nn.Linear(1000, 100)
+        self.fc3 = nn.Linear(100, config.num_classes)
         self.landmarks_initialized = False
         self.landmarks = None
         self.device = config.device
@@ -119,8 +160,8 @@ class Model(nn.Module):
 
         # 将相似度矩阵转换为概率矩阵
         # 沿着每个点的聚类中心维度进行归一化
-        probability_matrix = similarity_matrix / (similarity_matrix.sum(dim=1, keepdim=True)+1e-6)
-        # probability_matrix = probability_matrix / (probability_matrix.sum(dim=1, keepdim=True)+1e-6)
+        # probability_matrix = similarity_matrix / (similarity_matrix.sum(dim=1, keepdim=True)+1e-6)
+        probability_matrix = similarity_matrix / (similarity_matrix.sum(dim=2, keepdim=True)+1e-6)
 
         return probability_matrix
 

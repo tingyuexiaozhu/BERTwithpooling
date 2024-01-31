@@ -1,4 +1,5 @@
 bert_pretrain/*
-goemotion/*
+goemotion/saved_dict
+ISEAR/saved_dict
 *.npy
 *.ckpt

@@ -30,25 +30,42 @@ if __name__ == '__main__':
     config = x.Config(dataset)
     train_data, dev_data, test_data = build_dataset(config)
 
-    dataI =DatasetIterater(train_data, config.batch_size, config.device)
+    dataI =DatasetIterater(train_data, 50, config.device)
     x, y=dataI._to_tensor(train_data)
     context=x[0]
     mask=x[2]
     bert=BertModel.from_pretrained(config.bert_path).to(config.device)
     n=context.shape[0]
-    num_rows_to_select = n // 50
 
-    # 随机生成索引
-    indices = torch.randperm(n)[:num_rows_to_select]
+    batch_size = 10
 
-    # 使用这些索引来抽取context和mask的行
-    selected_context = context[indices]
-    selected_mask = mask[indices]
+    # 存储所有批次的 embeddings
+    all_embeddings = []
 
-    encoder_out, text_cls = bert(selected_context, attention_mask=selected_mask, output_all_encoded_layers=False)
-    nums, seq_len, hidden_size = encoder_out.shape
-    encoder_out = encoder_out.view(nums*seq_len,  hidden_size).cpu().detach().numpy()
+    # 循环处理每个批次
+    for i in tqdm(range(0, context.size(0), batch_size), desc="Processing batches"):
+        # 对最后一个批次进行处理，确保包含所有剩余的项
+        batch_context = context[i:i + batch_size] if i + batch_size < context.size(0) else context[i:]
+        batch_mask = mask[i:i + batch_size] if i + batch_size < mask.size(0) else mask[i:]
 
-    kmeans = KMeans(n_clusters=100, random_state=0, n_init=10, max_iter=300).fit(encoder_out)
+        # 获取每个批次的 embeddings，并直接合并
+        with torch.no_grad():  # 确保不保存梯度信息，减少显存使用
+            batch_embeddings = bert(batch_context, attention_mask=batch_mask,
+                                    output_all_encoded_layers=False)[0]
+            all_embeddings.append(batch_embeddings.cpu())  # 将 embeddings 移至 CPU
+
+        # 清除不再需要的变量以释放显存
+        del batch_context, batch_mask, batch_embeddings
+        torch.cuda.empty_cache()  # 清理未使用的缓存
+
+    # 合并所有批次的 embeddings
+    final_embeddings = torch.cat(all_embeddings, dim=0)
+
+    nums, seq_len, hidden_size = final_embeddings.shape
+    encoder_out = final_embeddings.view(nums * seq_len, hidden_size).cpu().detach().numpy()
+
+    kmeans = KMeans(n_clusters=200, random_state=0, n_init=10, max_iter=300).fit(encoder_out)
     cluster_centers = kmeans.cluster_centers_
-    np.save('cluster_centers.npy', cluster_centers)
+    np.save('new_cluster_centers200.npy', cluster_centers)
+
+
